@@ -2,45 +2,46 @@ import tkinter as tk
 import random
 import time
 from threading import Thread
-from collections import Counter
+from collections import defaultdict
 
 class AIPlayer:
     def __init__(self):
-        self.history_results = []
-        self.history_player_guesses = []
+        self.data = []  # penyimpanan sementara dalam RAM
 
     def learn(self, hasil_koin, tebakan_player):
-        self.history_results.append(hasil_koin)
-        self.history_player_guesses.append(tebakan_player)
+        self.data.append((tebakan_player, hasil_koin))
 
-    def prediksi_dari_hasil_koin(self):
-        if not self.history_results:
+    def naive_bayes_prediction(self):
+        if not self.data:
             return random.choice(["Head", "Tail"])
-        freq = Counter(self.history_results)
-        return freq.most_common(1)[0][0]
 
-    def prediksi_dari_pemain(self):
-        if not self.history_player_guesses:
-            return random.choice(["Head", "Tail"])
-        freq = Counter(self.history_player_guesses)
-        prediksi = freq.most_common(1)[0][0]
-        return "Tail" if prediksi == "Head" else "Head"
+        counts = defaultdict(lambda: {"Head": 0, "Tail": 0})
+        total = {"Head": 0, "Tail": 0}
+
+        # Hitung frekuensi
+        for tebakan, hasil in self.data:
+            counts[tebakan][hasil] += 1
+            total[hasil] += 1
+
+        # Hitung probabilitas posterior (dengan asumsi tebakan terakhir pemain)
+        last_guess = self.data[-1][0] if self.data else random.choice(["Head", "Tail"])
+        prob_head = (counts[last_guess]["Head"] + 1) / (total["Head"] + 2)  # Laplace smoothing
+        prob_tail = (counts[last_guess]["Tail"] + 1) / (total["Tail"] + 2)
+
+        return "Head" if prob_head > prob_tail else "Tail"
 
     def plan(self):
-        strategi = []
-        strategi += [self.prediksi_dari_hasil_koin()] * 4
-        strategi += [self.prediksi_dari_pemain()] * 3
-        strategi += [random.choice(["Head", "Tail"])] * 1
+        strategi = [self.naive_bayes_prediction()] * 6
+        strategi += [random.choice(["Head", "Tail"])] * 2
         return random.choice(strategi)
 
 class CoinGameGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("Game Lempar Koin - Tanpa Gambar")
+        self.root.title("Game Lempar Koin ")
 
         self.player_score = 0
         self.ai_score = 0
-        self.ronde = 1
         self.ai = AIPlayer()
 
         self.build_widgets()
@@ -67,7 +68,7 @@ class CoinGameGUI:
         return 2 if hasil == "Head" else 1
 
     def animasi_lemparan(self):
-        for _ in range(10):  # animasi cepat
+        for _ in range(10):
             hasil_singkat = random.choice(["H", "T"])
             self.koin_label.config(text=hasil_singkat)
             time.sleep(0.1)
